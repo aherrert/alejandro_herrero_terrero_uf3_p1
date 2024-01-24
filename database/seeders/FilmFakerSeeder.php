@@ -18,11 +18,10 @@ class FilmFakerSeeder extends Seeder
                 'year' => $faker->year,
                 'genre' => $faker->randomElement(["Action", "Drama", "Comedy","Adventure", "Horror", "Science Fiction", "Fantasy", "Romance", "Mystery", "Thriller"]),
                 'country' => $faker->country,
-                'duration' => $faker->numberBetween(60, 240),
+                'duration' => $faker->numberBetween(60, 140),
                 'img_url' => $faker->imageUrl(),
                 "created_at" => now()->setTimezone("Europe/Madrid"),
             ]);
         }
     }
 }
-
