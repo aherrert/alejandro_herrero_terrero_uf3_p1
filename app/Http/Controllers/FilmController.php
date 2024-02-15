@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Facades\File;
 
 class FilmController extends Controller
@@ -14,7 +16,10 @@ class FilmController extends Controller
      */
     public static function readFilms(): array
     {
-        $films = Storage::json('/public/films.json');
+        $films_json = Storage::json('/public/films.json');
+        $films_bbdd = DB::table("films")->select('name', 'year', 'genre', 'country', 'duration', 'img_url')->get();
+        $actorsArray = json_decode(json_encode($films_bbdd), true);
+        $films = array_merge($films_json, $actorsArray);
         return $films;
     }
     /**
@@ -183,7 +188,7 @@ class FilmController extends Controller
         $filmName = $request->input('name');
 
         if ($this->isFilm($filmName)) {
-            return redirect('/')->with('error', 'Film already exists.');
+            return redirect('/')->with('error', 'Película ya existente.');
         } else {
             // Add the film if it doesn't exist
             $this->addFilm($request);
@@ -204,21 +209,41 @@ class FilmController extends Controller
 
     private function addFilm(Request $request)
     {
+        $title = "Listado de películas";
+        $filmName = $request->input('name');
+
+        // Verificar si la película ya existe en la base de datos
+        $filmExistInDB = DB::table('films')->where('name', $filmName)->exists();
+
+        // Verificar si la película ya existe en el archivo JSON
         $films = $this->getFilmsFromJson();
+        $filmExistInJSON = collect($films)->contains('name', $filmName);
 
-        $newFilm = [
-            'name' => $request->input('name'),
-            'year' => $request->input('year'),
-            'genre' => $request->input('genre'),
-            'country' => $request->input('country'),
-            'duration' => $request->input('duration'),
-            'img_url' => $request->input('url_image'), // renaming 'url_image' to 'img_url'
-        ];
+        if ($filmExistInDB || $filmExistInJSON) {
+            return view('welcome', ["Error" => "Lo siento, pero esta película ya existe"]);
+        } else {
+            $newFilm = [
+                'name' => $filmName,
+                'year' => $request->input('year'),
+                'genre' => $request->input('genre'),
+                'country' => $request->input('country'),
+                'duration' => $request->input('duration'),
+                'img_url' => $request->input('url_image'), // renaming 'url_image' to 'img_url'
+            ];
 
-        $films[] = $newFilm;
-        $this->saveFilmsToJson($films);
+            // Insertar en la base de datos SQL
+            DB::table('films')->insert($newFilm);
 
+            // Agregar el nuevo film al arreglo y escribirlo al archivo JSON
+            $films[] = $newFilm;
+            $this->saveFilmsToJson($films);
+
+            // Obtener las películas actualizadas y mostrar la lista
+            $films = $this->getFilmsFromJson(); // O cualquier método correspondiente para obtener datos de SQL
+            return view('films.list', ["films" => $films, "title" => $title]);
+        }
     }
+
 
     public function listFilteredFilms($year = null, $genre = null)
     {
@@ -226,9 +251,13 @@ class FilmController extends Controller
         $title = "Listado de todas las pelis";
         $films = $this->getFilmsFromJson();
 
-        // Filter films based on year or genre
-        // ... (remaining code for filtering by year and genre remains the same)
-
+        // Filtrar películas basadas en el año y el género
+        foreach ($films as $film) {
+            if ((is_null($year) || $film['year'] == $year) && (is_null($genre) || strtolower($film['genre']) == strtolower($genre))) {
+                $films_filtered[] = $film;
+            }
+        }
+        // Devolver la vista con las películas filtradas
         return view("films.list", ["films" => $films_filtered, "title" => $title]);
     }
 }
