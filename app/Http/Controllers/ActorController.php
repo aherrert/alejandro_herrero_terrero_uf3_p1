@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Actor;
 
 use Illuminate\Support\Facades\DB;
 
@@ -14,10 +15,11 @@ class ActorController extends Controller
          */
         public static function readActors()
         {
-                $actors = DB::table("actors")->select('name', 'surname', 'birthdate', 'country', 'img_url')->get();
+                $actors = Actor::select('name', 'surname', 'birthdate', 'country', 'img_url')->get();
                 $actorsArray = json_decode(json_encode($actors), true);
                 return $actorsArray;
         }
+
         public function listActors()
         {
                 $title = "Listado de todos los actores";
@@ -47,17 +49,19 @@ class ActorController extends Controller
         }
         public function countActors()
         {
-                $totalActors = count(DB::table("actors")->get()->toArray());
+                $actors = ActorController::readActors();
+                $totalActors = count($actors);
                 return view('actors.counter', ['totalActors' => $totalActors]);
         }
         public function deleteActor($id)
         {
                 // Encontrar al actor por su ID
-                $actor = DB::table("actors")->where('id', $id)->first();
+                $actor = Actor::find($id);
 
                 if ($actor) {
+                        $actor->delete();
                         // Eliminar el actor
-                        DB::table("actors")->where('id', $id)->delete();
+                        DB::table("actors")->where($id)->delete();
                         return response()->json(['acción' => 'delete', 'status' => 'true']);
                 } else {
                         return response()->json(['acción' => 'delete', 'status' => 'false']);
